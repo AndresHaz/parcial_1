@@ -1,29 +1,32 @@
 #include <iostream>
 #include <vector>
+#include <algorithm> // Para la función next_permutation
 
 using namespace std;
 
 // Función para imprimir la matriz
-void imprimirMatriz(int* matriz, int dimension) {
+void imprimirMatriz(const vector<int> &matriz, int dimension) {
     for (int i = 0; i < dimension; ++i) {
         for (int j = 0; j < dimension; ++j) {
             cout << matriz[i * dimension + j] << " ";
         }
         cout << endl; // Nueva línea al final de cada fila
     }
+    cout << endl; // Nueva línea adicional entre matrices
 }
 
-
-
-// Función para generar la matriz
-int* generarMatriz(int dimension) {
-    int* matriz = new int[dimension * dimension];
+// Función para generar una matriz cuadrada con dimensiones impares, con centro 0
+vector<int> generarMatriz(int dimension) {
+    vector<int> matriz(dimension * dimension, 0);
     int valorActual = 1;
+
+    // Calcular el centro de la matriz
+    int centro = dimension / 2;
 
     for (int i = 0; i < dimension; ++i) {
         for (int j = 0; j < dimension; ++j) {
             // Dejamos el centro de la matriz vacío
-            if (i == dimension / 2 && j == dimension / 2) {
+            if (i == centro && j == centro) {
                 matriz[i * dimension + j] = 0;
             } else {
                 matriz[i * dimension + j] = valorActual++;
@@ -33,122 +36,163 @@ int* generarMatriz(int dimension) {
     return matriz;
 }
 
-// Función para rotar una matriz cuadrada de tamaño 'dimension'
-void rotarMatriz(int* matriz, int dimension) {
-    int* temp = new int[dimension * dimension];
+bool validarReglaK(const vector<int> &estructuraActual, const vector<int> &estructuraSiguiente, int dimensionActual, int dimensionSiguiente, const vector<int> &reglaK) {
+    int fila = reglaK[0];
+    int columna = reglaK[1];
 
-    // Copiar la matriz original en una temporal
-    for (int i = 0; i < dimension; ++i) {
-        for (int j = 0; j < dimension; ++j) {
-            temp[i * dimension + j] = matriz[i * dimension + j];
+    if (fila < 0 || fila >= dimensionActual || columna < 0 || columna >= dimensionActual)
+        return false; // La posición especificada en la regla K está fuera de los límites de la estructura actual
+
+    int valorK = reglaK[2];
+
+    bool reglaCumplida = false;
+    int rotaciones = 0; // Contador de rotaciones
+
+    vector<int> estructuraSiguienteCopy = estructuraSiguiente; // Hacer una copia de estructuraSiguiente
+
+    while (rotaciones < 4) { // Realizar rotaciones hasta alcanzar un total de 360 grados
+        switch (valorK) {
+        case 1: // La posición de la matriz actual debe ser mayor que la posición de la matriz siguiente
+            reglaCumplida = (estructuraActual[fila * dimensionActual + columna] > estructuraSiguienteCopy[fila * dimensionSiguiente + columna]);
+            break;
+        case -1: // La posición de la matriz actual debe ser menor que la posición de la matriz siguiente
+            reglaCumplida = (estructuraActual[fila * dimensionActual + columna] < estructuraSiguienteCopy[fila * dimensionSiguiente + columna]);
+            break;
+        case 0: // La posición de la matriz actual debe ser igual a la posición de la matriz siguiente
+            reglaCumplida = (estructuraActual[fila * dimensionActual + columna] == estructuraSiguienteCopy[fila * dimensionSiguiente + columna]);
+            break;
+        default:
+            return false; // Valor de regla K no reconocido
         }
+
+        if (reglaCumplida)
+            break;
+
+        // Rotar la matriz siguiente 90 grados en sentido antihorario
+        vector<int> temp = estructuraSiguienteCopy;
+        for (int i = 0; i < dimensionSiguiente; ++i) {
+            for (int j = 0; j < dimensionSiguiente; ++j) {
+                estructuraSiguienteCopy[i * dimensionSiguiente + j] = temp[j * dimensionSiguiente + (dimensionSiguiente - 1 - i)];
+            }
+        }
+
+        rotaciones++; // Incrementar el contador de rotaciones
     }
 
-    // Rotar la matriz
-    for (int i = 0; i < dimension; ++i) {
-        for (int j = 0; j < dimension; ++j) {
-            matriz[j * dimension + (dimension - 1 - i)] = temp[i * dimension + j];
-        }
-    }
-
-    delete[] temp;
+    return reglaCumplida;
 }
 
-// Función para validar la regla K
-bool validarReglaK(const vector<int*>& estructuras, const vector<int>& dimensiones, const vector<int>& reglaK) {
-    int numEstructuras = estructuras.size();
-    int numReglas = reglaK.size();
-    if (numEstructuras <= 1 || numReglas != numEstructuras - 1)
-        return false; // No se pueden validar reglas K con menos de 2 estructuras o si el número de reglas no coincide
 
-    for (int i = 0; i < numReglas; ++i) {
-        int* estructuraActual = estructuras[i];
-        int* estructuraSiguiente = estructuras[i + 1];
-        int dimensionActual = dimensiones[i];
-        int dimensionSiguiente = dimensiones[i + 1];
+// Función para buscar una combinación óptima que cumpla con la regla K
+bool buscarCombinacionOptima(vector<vector<int>> &matrices, const vector<int> &dimensiones, const vector<int> &reglaK) {
+    int numMatrices = matrices.size();
 
-        int fila = reglaK[i];
-        int columna = reglaK[i + numReglas];
-        int valorA = reglaK[i + numReglas * 2];
-        int valorB = reglaK[i + numReglas * 3];
-
-        if (fila < 0 || fila >= dimensionActual || columna < 0 || columna >= dimensionActual)
-            return false; // La posición especificada en la regla K está fuera de los límites de la estructura actual
-
-        if (valorA < 0 || valorA >= dimensionSiguiente || valorB < 0 || valorB >= dimensionSiguiente)
-            return false; // Las posiciones especificadas en la regla K están fuera de los límites de la estructura siguiente
-
-        int valorC = estructuraSiguiente[valorA * dimensionSiguiente + valorB];
-        int valorD = estructuraSiguiente[dimensionSiguiente / 2 * dimensionSiguiente + dimensionSiguiente / 2]; // Valor en el centro de la estructura siguiente
-
-        if (!(estructuraActual[fila * dimensionActual + columna] > valorA && valorA < valorC && valorC > valorD))
-            return false; // La regla K no se cumple
+    // Vector para almacenar las permutaciones de las matrices
+    vector<int> perm(numMatrices);
+    for (int i = 0; i < numMatrices; ++i) {
+        perm[i] = i;
     }
 
-    return true; // Todas las reglas K se cumplieron correctamente
+    // Inicializar un vector para almacenar las rotaciones actuales de cada matriz
+    vector<int> rotacionesActuales(numMatrices, 0);
+
+    // Inicializar un vector para almacenar el mejor estado de rotación de cada matriz
+    vector<int> mejorEstadoRotacion(numMatrices, 0);
+
+    bool combinacionEncontrada = false;
+
+    // Bucle principal para probar todas las combinaciones posibles
+    do {
+        bool reglaKValida = true;
+
+        // Bucle para probar todas las matrices
+        for (int i = numMatrices - 1; i >= 0; --i) {
+            int idx = perm[i]; // Índice de la matriz actual en la permutación actual
+            vector<int> &estructuraActual = matrices[idx]; // Matriz actual
+            int dimensionActual = dimensiones[idx]; // Dimensiones de la matriz actual
+
+            // Realizar la cantidad de rotaciones actuales en la matriz actual
+            for (int j = 0; j < rotacionesActuales[i]; ++j) {
+                vector<int> temp = estructuraActual;
+                for (int k = 0; k < dimensionActual; ++k) {
+                    for (int l = 0; l < dimensionActual; ++l) {
+                        estructuraActual[k * dimensionActual + l] = temp[l * dimensionActual + (dimensionActual - 1 - k)];
+                    }
+                }
+            }
+
+            // Verificar si la regla K se cumple entre la matriz actual y la siguiente
+            if (i < numMatrices - 1) {
+                vector<int> &estructuraSiguiente = matrices[perm[i + 1]]; // Matriz siguiente
+                int dimensionSiguiente = dimensiones[perm[i + 1]]; // Dimensiones de la matriz siguiente
+                reglaKValida = validarReglaK(estructuraActual, estructuraSiguiente, dimensionActual, dimensionSiguiente, reglaK);
+                if (!reglaKValida) {
+                    break; // Si la regla K no se cumple, salir del bucle
+                }
+            }
+        }
+
+        // Si la regla K se cumple para todas las matrices, se ha encontrado una combinación válida
+        if (reglaKValida) {
+            combinacionEncontrada = true;
+            break; // Salir del bucle principal
+        }
+
+        // Incrementar el estado de rotación de la última matriz
+        rotacionesActuales[numMatrices - 1]++;
+
+        // Actualizar el estado de rotación de cada matriz y retroceder según sea necesario
+        for (int i = numMatrices - 1; i > 0; --i) {
+            if (rotacionesActuales[i] == 4) {
+                rotacionesActuales[i] = 0; // Restablecer la rotación a cero si alcanza 4 rotaciones completas
+                rotacionesActuales[i - 1]++; // Incrementar la rotación de la matriz anterior
+            }
+        }
+    } while (next_permutation(perm.begin(), perm.end()) && !combinacionEncontrada);
+
+    // Si se encontró una combinación válida, imprimir las matrices
+    if (combinacionEncontrada) {
+        cout << "Combinación óptima encontrada:" << endl;
+        for (int i = 0; i < numMatrices; ++i) {
+            int idx = perm[i];
+            cout << "Matriz " << idx + 1 << ":" << endl;
+            imprimirMatriz(matrices[idx], dimensiones[idx]);
+        }
+    } else {
+        cout << "No se encontró ninguna combinación que cumpla con la regla K." << endl;
+    }
+
+    return combinacionEncontrada;
 }
 
 int main() {
-    int numMatrices;
-    cout << "Ingrese la cantidad de matrices: ";
-    cin >> numMatrices;
+    int longitudReglaK;
+    cout << "Ingrese la longitud de la regla K: ";
+    cin >> longitudReglaK;
 
-    // Vector para almacenar los punteros a las matrices
-    vector<int*> listaMatrices;
-    vector<int> dimensiones; // Para almacenar las dimensiones de las matrices
+    // Crear las matrices con base en la longitud de la regla K
+    int numMatrices = longitudReglaK - 1;
+    vector<vector<int>> matrices;
+    vector<int> dimensiones;
 
     for (int i = 0; i < numMatrices; ++i) {
-        int dimension;
-        cout << "Ingrese la dimensión de la matriz " << i + 1 << " (debe ser un número impar): ";
-        cin >> dimension;
-
-        if (dimension % 2 == 0) {
-            cout << "El tamaño de la matriz debe ser un número impar." << endl;
-            // Liberar la memoria de las matrices creadas antes de salir
-            for (int* matriz : listaMatrices) {
-                delete[] matriz;
-            }
-            return 1; // Salir del programa con un código de error
-        }
-
-        int* matriz = generarMatriz(dimension);
-        listaMatrices.push_back(matriz); // Guardar el puntero de la matriz
-        dimensiones.push_back(dimension); // Guardar la dimensión de la matriz
-
-        cout << "Matriz " << i + 1 << ":" << endl;
-        imprimirMatriz(matriz, dimension);
+        int dimension = 2 * (i + 2) - 1; // Dimensiones impares creciendo de 3 en 3
+        vector<int> matriz = generarMatriz(dimension);
+        matrices.push_back(matriz);
+        dimensiones.push_back(dimension);
     }
 
-    // Validar la regla K
-    vector<int> reglaK;
-    cout << "Ingrese la regla K (fila y columna de cada estructura seguidas de los valores A, B, C, D): ";
-    int valor;
-    for (int i = 0; i < numMatrices - 1; ++i) {
-        for (int j = 0; j < 5; ++j) {
-            cin >> valor;
-            reglaK.push_back(valor);
-        }
+    // Vector para almacenar la regla K
+    vector<int> reglaK(longitudReglaK);
+
+    // Ingresar la regla K
+    cout << "\nIngrese los elementos de la regla K (fila, columna, tipo): ";
+    for (int i = 0; i < longitudReglaK; ++i) {
+        cin >> reglaK[i];
     }
 
-    bool reglaValida = validarReglaK(listaMatrices, dimensiones, reglaK);
-    if (reglaValida) {
-        cout << "La regla K se cumple." << endl;
-    } else {
-        cout << "La regla K no se cumple." << endl;
-    }
-
-    // Rotar las estructuras para abrir la cerradura
-    cout << "\nAbriendo la cerradura..." << endl;
-    for (int i = 0; i < numMatrices; ++i) {
-        cout << "Estructura " << i + 1 << ":" << endl;
-        rotarMatriz(listaMatrices[i], dimensiones[i]);
-        imprimirMatriz(listaMatrices[i], dimensiones[i]);
-    }
-
-    // No olvides liberar la memoria después de usar las matrices
-    for (int* matriz : listaMatrices) {
-        delete[] matriz;
-    }
+    // Buscar combinación óptima entre las estructuras
+    buscarCombinacionOptima(matrices, dimensiones, reglaK);
 
     return 0;
 }
